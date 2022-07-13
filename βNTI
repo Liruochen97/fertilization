@@ -1,0 +1,663 @@
+library(picante)
+setwd("/home/omics_2020051218/16s/rawData/16s_csv_taxa")
+
+#########################Beta_NTI#############################
+Beta_NTI<-function(phylo,comun,beta.reps=999){
+  require(picante)
+  
+  comun=t(comun)
+  match.phylo.comun = match.phylo.data(phylo, t(comun))
+  beta.mntd.weighted = as.matrix(comdistnt(t(match.phylo.comun$data),cophenetic(match.phylo.comun$phy),abundance.weighted=T))
+  
+  rand.weighted.bMNTD.comp = array(c(-999),dim=c(ncol(match.phylo.comun$data),ncol(match.phylo.comun$data),beta.reps))
+  for (rep in 1:beta.reps) {
+    rand.weighted.bMNTD.comp[,,rep] = as.matrix(comdistnt(t(match.phylo.comun$data),taxaShuffle(cophenetic(match.phylo.comun$phy)),abundance.weighted=T,exclude.conspecifics = F))
+    print(c(date(),rep))
+  }
+  
+  weighted.bNTI = matrix(c(NA),nrow=ncol(match.phylo.comun$data),ncol=ncol(match.phylo.comun$data))
+  for(columns in 1:(ncol(match.phylo.comun$data)-1)) {
+    for(rows in (columns+1):ncol(match.phylo.comun$data)) {
+      rand.vals = rand.weighted.bMNTD.comp[rows,columns,];
+      weighted.bNTI[rows,columns] = (beta.mntd.weighted[rows,columns] - mean(rand.vals)) / sd(rand.vals)
+      rm("rand.vals")
+    }
+  }
+  rownames(weighted.bNTI) = colnames(match.phylo.comun$data);
+  colnames(weighted.bNTI) = colnames(match.phylo.comun$data);
+  return(as.dist(weighted.bNTI))
+}
+
+
+####################ab16s###############################
+ab16s_asv<-read.csv("T16s_ab.csv",row.names = 1)
+View(ab16s_asv)
+tree1<-read.tree("ASVs_16s.tre")
+phylo<-prune.sample(t(ab16s_asv),tree1)
+str(phylo)
+View(phylo$tip.label)
+
+cNTI <- Beta_NTI(phylo,ab16s_asv,beta.reps=999)
+ab16s_NTI<- as.matrix(cNTI)
+View(ab16s_NTI)
+write.csv(ab16s_NTI,"ab16s_NTI.csv")
+
+ab16s_N0<-ab16s_NTI[1:6,1:6]
+ab16s_N120<-ab16s_NTI[7:12,7:12]
+ab16s_N240<-ab16s_NTI[13:18,13:18]
+ab16s_ON120<-ab16s_NTI[19:24,19:24]
+ab16s_ON240<-ab16s_NTI[25:30,25:30]
+ab16s_final<-data.frame(sapply(ab16s_N0[lower.tri(ab16s_N0)],unlist),sapply(ab16s_N120[lower.tri(ab16s_N120)],unlist),sapply(ab16s_N240[lower.tri(ab16s_N240)],unlist),
+                        sapply(ab16s_ON120[lower.tri(ab16s_ON120)],unlist),sapply(ab16s_ON240[lower.tri(ab16s_ON240)],unlist))
+View(ab16s_final1)
+colnames(ab16s_final)<-c("N0","N120","N240","ON120","ON240")
+ab16s_final1<-gather(ab16s_final,treat,value)
+
+####################rt16s###############################
+rt16s_asv1<-read.csv("T16s_rt.csv",row.names = 1)
+dim(rt16s_asv)
+asv4<-rt16s_asv1
+asv4[asv4>0]<-1###把所有大于1的otu赋值为1
+View(asv4)
+
+rt16s_asv<-rt16s_asv1[-which(rowSums(asv4)<=3),]##去除所有样本中otu个数小于3的otu
+dim(rt16s_asv)##########重新确定结果，调整物种丰度#############
+
+tree1<-read.tree("ASVs_16s.tre")
+phylo_rt16s<-prune.sample(t(rt16s_asv),tree1)
+str(phylo_rt16s)
+View(phylo_rt16s$tip.label)
+
+rt16s_cNTI <- Beta_NTI(phylo_rt16s,rt16s_asv,beta.reps=999)
+rt16s_NTI<- as.matrix(rt16s_cNTI)
+View(rt16s_NTI)
+write.csv(rt16s_NTI,"rt16s_NTI3.csv")
+View(rt16s_ON120)
+
+rt16s_N0<-rt16s_NTI[1:6,1:6]
+rt16s_N120<-rt16s_NTI[7:12,7:12]
+rt16s_N240<-rt16s_NTI[13:18,13:18]
+rt16s_ON120<-rt16s_NTI[19:24,19:24]
+rt16s_ON240<-rt16s_NTI[25:30,25:30]
+rt16s_final<-data.frame(sapply(rt16s_N0[lower.tri(rt16s_N0)],unlist),sapply(rt16s_N120[lower.tri(rt16s_N120)],unlist),sapply(rt16s_N240[lower.tri(rt16s_N240)],unlist),
+                        sapply(rt16s_ON120[lower.tri(rt16s_ON120)],unlist),sapply(rt16s_ON240[lower.tri(rt16s_ON240)],unlist))
+
+colnames(rt16s_final)<-c("N0","N120","N240","ON120","ON240")
+rt16s_final1<-gather(rt16s_final,treat,value)
+View(rt16s_final1)
+
+####################rtits###############################
+rtits_asv<-read.csv("itsT_rt.csv",row.names = 1)
+View(rtits_asv)
+tree2<-read.tree("ASVs_its.tre")
+phylo_rtits<-prune.sample(t(rtits_asv),tree2)
+str(phylo_rtits)
+View(phylo_rtits$tip.label)
+
+rtits_cNTI <- Beta_NTI(phylo_rtits,rtits_asv,beta.reps=999)
+rtits_NTI<- as.matrix(rtits_cNTI)
+View(rtits_NTI)
+write.csv(rtits_NTI,"rtits_NTI.csv")
+
+rtits_N0<-rtits_NTI[1:6,1:6]
+rtits_N120<-rtits_NTI[7:12,7:12]
+rtits_N240<-rtits_NTI[13:18,13:18]
+rtits_ON120<-rtits_NTI[19:24,19:24]
+rtits_ON240<-rtits_NTI[25:30,25:30]
+rtits_final<-data.frame(sapply(rtits_N0[lower.tri(rtits_N0)],unlist),sapply(rtits_N120[lower.tri(rtits_N120)],unlist),sapply(rtits_N240[lower.tri(rtits_N240)],unlist),
+                        sapply(rtits_ON120[lower.tri(rtits_ON120)],unlist),sapply(rtits_ON240[lower.tri(rtits_ON240)],unlist))
+
+colnames(rtits_final)<-c("N0","N120","N240","ON120","ON240")
+rtits_final1<-gather(rtits_final,treat,value)
+View(rtits_final)
+
+####################rtits###############################
+abits_asv<-read.csv("itsT_ab.csv",row.names = 1)
+View(abits_asv)
+tree1<-read.tree("ASVs_its.tre")
+phylo_abits<-prune.sample(t(abits_asv),tree2)
+View(phylo_abits$tip.label)
+
+abits_cNTI <- Beta_NTI(phylo_abits,abits_asv,beta.reps=999)
+abits_NTI<- as.matrix(abits_cNTI)
+View(abits_NTI)
+write.csv(abits_NTI,"abits_NTI.csv")
+
+abits_N0<-abits_NTI[1:6,1:6]
+abits_N120<-abits_NTI[7:12,7:12]
+abits_N240<-abits_NTI[13:18,13:18]
+abits_ON120<-abits_NTI[19:24,19:24]
+abits_ON240<-abits_NTI[25:30,25:30]
+abits_final<-data.frame(sapply(abits_N0[lower.tri(abits_N0)],unlist),sapply(abits_N120[lower.tri(abits_N120)],unlist),sapply(abits_N240[lower.tri(abits_N240)],unlist),
+                        sapply(abits_ON120[lower.tri(abits_ON120)],unlist),sapply(abits_ON240[lower.tri(abits_ON240)],unlist))
+
+colnames(abits_final)<-c("N0","N120","N240","ON120","ON240")
+abits_final1<-gather(abits_final,treat,value)
+View(abits_final1)
+
+bNTI_16s<-rbind(ab16s_final1,rt16s_final1)
+View(bNTI_16s)
+bNTI_16s$type<-c(rep("Abundant",nrow(ab16s_final1)),rep("Rare",nrow(rt16s_final1)))
+bNTI_its<-rbind(abits_final1,rtits_final1)
+bNTI_its$type<-c(rep("Abundant",nrow(abits_final1)),rep("Rare",nrow(rtits_final1)))
+bNTI_micro<-rbind(bNTI_16s,bNTI_its)
+bNTI_micro$micro<-c(rep("Bacteria",nrow(bNTI_16s)),rep("Fungi",nrow(bNTI_its)))
+
+
+#######################abundant and rare to gather###################
+p_bNTI_16s<-ggplot(bNTI_16s,aes(x=treat,y=value,fill=treat))+geom_boxplot(outlier.size=0.25)+facet_grid(.~type,scales="free_y")+#geom_jitter(size=0.28,width=0.2)+
+  scale_fill_brewer(palette="Set3")+ylab("Beta-NTI")+
+  theme_bw()+theme(legend.title=element_blank(),legend.text=element_text(size=10),
+                          legend.key.height=unit(0.6,"cm"),
+                          axis.title.x=element_blank(),
+                          axis.title.y=element_text(size=10,face="bold",colour="black"),
+                          axis.text.x=element_text(size=8,face="plain",colour="black"),
+                          axis.text.y=element_text(size=8),
+                          strip.background=element_rect(fill="black",size=0.1),
+                          strip.text=element_text(colour="white"),
+                          panel.grid = element_blank())
+p_bNTI_16s
+
+p_bNTI_its<-ggplot(bNTI_its,aes(x=treat,y=value,fill=treat))+geom_boxplot(outlier.size=0.25)+facet_grid(.~type,scales="free_y")+#geom_jitter(size=0.28,width=0.2)+
+  scale_fill_brewer(palette="Set3")+ylab("Beta-NTI")+
+  theme_bw()+theme(legend.title=element_blank(),legend.text=element_text(size=10),
+                   legend.key.height=unit(0.6,"cm"),
+                   axis.title.x=element_blank(),
+                   axis.title.y=element_text(size=10,face="bold",colour="black"),
+                   axis.text.x=element_text(size=8,face="plain",colour="black"),
+                   axis.text.y=element_text(size=8),
+                   strip.background=element_rect(fill="black",size=0.1),
+                   strip.text=element_text(colour="white"),
+                   panel.grid = element_blank())
+p_bNTI_its
+
+pnti<-ggarrange(p_bNTI_16s,p_bNTI_its,ncol=1,nrow=2,labels=c("(a)","(b)"))
+ggsave("pnti.pdf",pnti,width=7,height=6)
+
+p_bNTI_micro<-ggplot(bNTI_micro,aes(x=type,y=value,fill=type))+geom_boxplot(outlier.size=0.25)+facet_grid(.~micro,scales="free_y")+#geom_jitter(size=0.28,width=0.2)+
+  scale_fill_brewer(palette="Set3")+ylab("Beta-NTI")+
+  theme_bw()+theme(legend.title=element_blank(),legend.text=element_text(size=10),
+                   legend.key.height=unit(0.6,"cm"),
+                   axis.title.x=element_blank(),
+                   axis.title.y=element_text(size=10,face="bold",colour="black"),
+                   axis.text.x=element_text(size=8,face="plain",colour="black"),
+                   axis.text.y=element_text(size=8),
+                   strip.background=element_rect(fill="black",size=0.1),
+                   strip.text=element_text(colour="white",face="bold"),
+                   panel.grid = element_blank())+
+  geom_hline(yintercept=-2,linetype="dashed")+geom_hline(yintercept=2,linetype="dashed")
+p_bNTI_micro
+ggsave("bNTI_micro.pdf",p_bNTI_micro,width=6,height=3)
+
+K16s_nti<-with(bNTI_16s,kruskal(bNTI_16s[1:150,2],type,group=TRUE, main="type"))
+Kits_nti<-with(bNTI_its,kruskal(bNTI_its[1:150,2],type,group=TRUE, main="type"))
+
+
+##########################RC-bray####################################
+source("RC_NJ.R")
+rc.ab16s<-RC.p(t(ab16s_asv),method="bray",rand=1000,portion=FALSE,nworker=16)
+rc.rt16s<-RC.p(t(rt16s_asv),method="bray",rand=1000,portion=FALSE,nworker=16)
+rc.abits<-RC.p(t(abits_asv),method="bray",rand=1000,portion=FALSE,nworker=16)
+rc.rtits<-RC.p(t(rtits_asv),method="bray",rand=1000,portion=FALSE,nworker=16)
+View(rc.rtits)
+write.csv(rc.ab16s,"rc.ab16s.csv")
+write.csv(rc.rt16s,"rc.rt16s.csv")
+write.csv(rc.abits,"rc.abits.csv")
+write.csv(rc.rtits,"rc.rtits.csv")
+
+######################rc.ab16s#######################3
+rc.ab16s_N0<-rc.ab16s[1:6,1:6]
+rc.ab16s_N120<-rc.ab16s[7:12,7:12]
+rc.ab16s_N240<-rc.ab16s[13:18,13:18]
+rc.ab16s_ON120<-rc.ab16s[19:24,19:24]
+rc.ab16s_ON240<-rc.ab16s[25:30,25:30]
+
+rc.ab16s_final<-data.frame(sapply(rc.ab16s_N0[lower.tri(rc.ab16s_N0)],unlist),
+                           sapply(rc.ab16s_N120[lower.tri(rc.ab16s_N120)],unlist),
+                           sapply(rc.ab16s_N240[lower.tri(rc.ab16s_N240)],unlist),
+                           sapply(rc.ab16s_ON120[lower.tri(rc.ab16s_ON120)],unlist),
+                           sapply(rc.ab16s_ON240[lower.tri(rc.ab16s_ON240)],unlist))
+
+colnames(rc.ab16s_final)<-c("N0","N120","N240","ON120","ON240")
+rc.ab16s_final1<-gather(rc.ab16s_final,treat,value)
+View(rc.ab16s_final1)
+
+ab16s_bray<-ggplot(rc.ab16s_final1,aes(x=treat,y=value,fill=treat))+geom_boxplot(outlier.size=0.25)+#facet_grid(.~type,scales="free_y")+
+  geom_jitter(size=0.28,width=0.2)+scale_fill_brewer(palette="Set3")+ylab("RC-bray")+
+  theme_bw()+theme(legend.title=element_blank(),legend.text=element_text(size=10),
+                   legend.key.height=unit(0.6,"cm"),
+                   axis.title.x=element_blank(),
+                   axis.title.y=element_text(size=10,face="bold",colour="black"),
+                   axis.text.x=element_text(size=8,face="plain",colour="black",vjust=0.5,hjust=0),
+                   axis.text.y=element_text(size=8),
+                   strip.background=element_rect(fill="black",size=0.1),
+                   strip.text=element_text(colour="white"))+
+  annotate("text",x=-Inf,y=Inf,hjust=-0.1,vjust=1.2,label="abundant")+
+  ylim(-1,1.5)
+ab16s_bray
+
+######################rc.rt16s#######################3
+rc.rt16s_N0<-rc.rt16s[1:6,1:6]
+rc.rt16s_N120<-rc.rt16s[7:12,7:12]
+rc.rt16s_N240<-rc.rt16s[13:18,13:18]
+rc.rt16s_ON120<-rc.rt16s[19:24,19:24]
+rc.rt16s_ON240<-rc.rt16s[25:30,25:30]
+
+rc.rt16s_final<-data.frame(sapply(rc.rt16s_N0[lower.tri(rc.rt16s_N0)],unlist),sapply(rc.rt16s_N120[lower.tri(rc.rt16s_N120)],unlist),sapply(rc.rt16s_N240[lower.tri(rc.rt16s_N240)],unlist),
+                           sapply(rc.rt16s_ON120[lower.tri(rc.rt16s_ON120)],unlist),sapply(rc.rt16s_ON240[lower.tri(rc.rt16s_ON240)],unlist))
+
+colnames(rc.rt16s_final)<-c("N0","N120","N240","ON120","ON240")
+rc.rt16s_final1<-gather(rc.rt16s_final,treat,value)
+View(rc.rt16s_final1)
+
+rt16s_bray<-ggplot(rc.rt16s_final1,aes(x=treat,y=value,fill=treat))+geom_boxplot(outlier.size=0.25)+#facet_grid(.~type,scales="free_y")+
+  geom_jitter(size=0.28,width=0.2)+scale_fill_brewer(palette="Set3")+ylab("RC-bray")+
+  theme_bw()+theme(legend.title=element_blank(),legend.text=element_text(size=10),
+                   legend.key.height=unit(0.6,"cm"),
+                   axis.title.x=element_blank(),
+                   axis.title.y=element_text(size=10,face="bold",colour="black"),
+                   axis.text.x=element_text(size=8,face="plain",colour="black",vjust=0.5,hjust=0),
+                   axis.text.y=element_text(size=8),
+                   strip.background=element_rect(fill="black",size=0.1),
+                   strip.text=element_text(colour="white"))+
+  annotate("text",x=-Inf,y=Inf,hjust=-0.1,vjust=1.2,label="rare")+
+  ylim(-1,1.5)
+rt16s_bray
+
+######################rc.abits#######################3
+rc.abits_N0<-rc.abits[1:6,1:6]
+rc.abits_N120<-rc.abits[7:12,7:12]
+rc.abits_N240<-rc.abits[13:18,13:18]
+rc.abits_ON120<-rc.abits[19:24,19:24]
+rc.abits_ON240<-rc.abits[25:30,25:30]
+
+rc.abits_final<-data.frame(sapply(rc.abits_N0[lower.tri(rc.abits_N0)],unlist),sapply(rc.abits_N120[lower.tri(rc.abits_N120)],unlist),sapply(rc.abits_N240[lower.tri(rc.abits_N240)],unlist),
+                           sapply(rc.abits_ON120[lower.tri(rc.abits_ON120)],unlist),sapply(rc.abits_ON240[lower.tri(rc.abits_ON240)],unlist))
+
+colnames(rc.abits_final)<-c("N0","N120","N240","ON120","ON240")
+rc.abits_final1<-gather(rc.abits_final,treat,value)
+View(rc.abits_final1)
+
+abits_bray<-ggplot(rc.abits_final1,aes(x=treat,y=value,fill=treat))+geom_boxplot(outlier.size=0.25)+#facet_grid(.~type,scales="free_y")+
+  geom_jitter(size=0.28,width=0.2)+scale_fill_brewer(palette="Set3")+ylab("RC-bray")+
+  theme_bw()+theme(legend.title=element_blank(),legend.text=element_text(size=10),
+                   legend.key.height=unit(0.6,"cm"),
+                   axis.title.x=element_blank(),
+                   axis.title.y=element_text(size=10,face="bold",colour="black"),
+                   axis.text.x=element_text(size=8,face="plain",colour="black",vjust=0.5,hjust=0),
+                   axis.text.y=element_text(size=8),
+                   strip.background=element_rect(fill="black",size=0.1),
+                   strip.text=element_text(colour="white"))+
+  annotate("text",x=-Inf,y=Inf,hjust=-0.1,vjust=1.2,label="abundant")+
+  ylim(-1,1.5)
+abits_bray
+
+######################rc.rtits#######################3
+rc.rtits_N0<-rc.rtits[1:6,1:6]
+rc.rtits_N120<-rc.rtits[7:12,7:12]
+rc.rtits_N240<-rc.rtits[13:18,13:18]
+rc.rtits_ON120<-rc.rtits[19:24,19:24]
+rc.rtits_ON240<-rc.rtits[25:30,25:30]
+View(rc.rt16s_ON240)
+
+rc.rtits_final<-data.frame(sapply(rc.rtits_N0[lower.tri(rc.rtits_N0)],unlist),
+                           sapply(rc.rtits_N120[lower.tri(rc.rtits_N120)],unlist),
+                           sapply(rc.rtits_N240[lower.tri(rc.rtits_N240)],unlist),
+                           sapply(rc.rtits_ON120[lower.tri(rc.rtits_ON120)],unlist),
+                           sapply(rc.rtits_ON240[lower.tri(rc.rtits_ON240)],unlist))
+
+colnames(rc.rtits_final)<-c("N0","N120","N240","ON120","ON240")
+rc.rtits_final1<-gather(rc.rtits_final,treat,value)
+View(rc.rtits_final1)
+
+
+rc.bray_its<-rbind(rc.abits_final1,rc.rtits_final1)
+rc.bray_its$type<-c(rep("Abundant",nrow(rc.abits_final1)),rep("Rare",nrow(rc.rtits_final1)))
+
+#######################abundant and rare to gather同上###################
+p_rc.bray_its<-ggplot(rc.bray_its,aes(x=treat,y=value,fill=treat))+geom_boxplot(outlier.size=0.25)+facet_grid(.~type,scales="free_y")+#geom_jitter(size=0.28,width=0.2)+
+  scale_fill_brewer(palette="Set3")+ylab("RC-bray")+
+  theme_bw()+theme(legend.title=element_blank(),legend.text=element_text(size=10),
+                   legend.key.height=unit(0.6,"cm"),
+                   axis.title.x=element_blank(),
+                   axis.title.y=element_text(size=10,face="bold",colour="black"),
+                   axis.text.x=element_text(size=8,face="plain",colour="black"),
+                   axis.text.y=element_text(size=8),
+                   strip.background=element_rect(fill="black",size=0.1),
+                   strip.text=element_text(colour="white",face="bold"),
+                   panel.grid = element_blank())
+p_rc.bray_its
+
+rc.bray_16s<-rbind(rc.ab16s_final1,rc.rt16s_final1)
+rc.bray_16s$type<-c(rep("Abundant",nrow(rc.ab16s_final1)),rep("Rare",nrow(rc.rt16s_final1)))
+p_rc.bray_16s<-ggplot(rc.bray_16s,aes(x=treat,y=value,fill=treat))+geom_boxplot(outlier.size=0.25)+facet_grid(.~type,scales="free_y")+#geom_jitter(size=0.28,width=0.2)+
+  scale_fill_brewer(palette="Set3")+ylab("RC-bray")+
+  theme_bw()+theme(legend.title=element_blank(),legend.text=element_text(size=10),
+                   legend.key.height=unit(0.6,"cm"),
+                   axis.title.x=element_blank(),
+                   axis.title.y=element_text(size=10,face="bold",colour="black"),
+                   axis.text.x=element_text(size=8,face="plain",colour="black"),
+                   axis.text.y=element_text(size=8),
+                   strip.background=element_rect(fill="black",size=0.1),
+                   strip.text=element_text(colour="white",face="bold"),
+                   panel.grid = element_blank())
+p_rc.bray_16s
+
+p_rc.bray<-ggarrange(p_rc.bray_16s,p_rc.bray_its,ncol=1,nrow=2,labels=c("(a)","(b)"))
+ggsave("p_rc.bray.pdf",p_rc.bray,width=7,height=6)
+
+
+
+##################挑选五种过程#############################
+cal.process<-function(df_bNTI,df_rc,stats=TRUE){
+  rcc<-df_rc[match(rownames(df_bNTI),rownames(df_rc)),match(colnames(df_bNTI),colnames(df_rc))]
+  bNTI.v<-as.vector(as.dist(df_bNTI))
+  rc.v<-as.vector(as.dist(rcc))
+  id.selectna<-(bNTI.v<=2&bNTI.v>=(-2))
+  num.pair<-length(bNTI.v)
+  select.l<-sum(bNTI.v>2)/num.pair
+  select.h<-sum(bNTI.v<(-2))/num.pair
+  disper.l<-sum(rc.v[id.selectna]>0.95)/num.pair
+  disper.h<-sum(rc.v[id.selectna]<(-0.95))/num.pair
+  drift<-sum(rc.v[id.selectna]<=0.95&rc.v[id.selectna]>=(-0.95))/num.pair
+  process<-data.frame(select.l,select.h,disper.l,disper.h,drift,num.pair)
+  return(process)
+}
+
+#################################ab16s###########################
+ab16s_NTI_n0<-ab16s_N0
+ab16s_rc_n0<-rc.ab16s_N0
+ab16s_n0_process<-cal.process(ab16s_NTI_n0,ab16s_rc_n0)
+ab16s_n0_process$type<-"abundant"
+ab16s_n0_process$treat<-"N0"
+View(ab16s_n0_process)
+
+ab16s_NTI_n120<-ab16s_N120
+ab16s_rc_n120<-rc.ab16s_N120
+ab16s_n120_process<-cal.process(ab16s_NTI_n120,ab16s_rc_n120)
+ab16s_n120_process$type<-"abundant"
+ab16s_n120_process$treat<-"N120"
+View(ab16s_n120_process)
+
+ab16s_NTI_n240<-ab16s_N240
+ab16s_rc_n240<-rc.ab16s_N240
+ab16s_n240_process<-cal.process(ab16s_NTI_n240,ab16s_rc_n240)
+ab16s_n240_process$type<-"abundant"
+ab16s_n240_process$treat<-"N240"
+View(ab16s_n240_process)
+
+ab16s_NTI_on120<-ab16s_ON120
+ab16s_rc_on120<-rc.ab16s_ON120
+ab16s_on120_process<-cal.process(ab16s_NTI_on120,ab16s_rc_on120)
+ab16s_on120_process$type<-"abundant"
+ab16s_on120_process$treat<-"ON120"
+View(ab16s_on120_process)
+
+ab16s_NTI_on240<-ab16s_ON240
+ab16s_rc_on240<-rc.ab16s_ON240
+ab16s_on240_process<-cal.process(ab16s_NTI_on240,ab16s_rc_on240)
+ab16s_on240_process$type<-"abundant"
+ab16s_on240_process$treat<-"ON240"
+View(ab16s_on240_process)
+
+#############################rt16s#####################
+rt16s_NTI_n0<-rt16s_N0
+rt16s_rc_n0<-rc.rt16s_N0
+rt16s_n0_process<-cal.process(rt16s_NTI_n0,rt16s_rc_n0)
+rt16s_n0_process$type<-"rare"
+rt16s_n0_process$treat<-"N0"
+View(rt16s_n0_process)
+
+rt16s_NTI_n120<-rt16s_N120
+rt16s_rc_n120<-rc.rt16s_N120
+rt16s_n120_process<-cal.process(rt16s_NTI_n120,rt16s_rc_n120)
+rt16s_n120_process$type<-"rare"
+rt16s_n120_process$treat<-"N120"
+View(rt16s_n120_process)
+
+rt16s_NTI_n240<-rt16s_N240
+rt16s_rc_n240<-rc.rt16s_N240
+rt16s_n240_process<-cal.process(rt16s_NTI_n240,rt16s_rc_n240)
+rt16s_n240_process$type<-"rare"
+rt16s_n240_process$treat<-"N240"
+View(rt16s_n240_process)
+
+rt16s_NTI_on120<-rt16s_ON120
+rt16s_rc_on120<-rc.rt16s_ON120
+rt16s_on120_process<-cal.process(rt16s_NTI_on120,rt16s_rc_on120)
+rt16s_on120_process$type<-"rare"
+rt16s_on120_process$treat<-"ON120"
+View(rt16s_on120_process)
+
+rt16s_NTI_on240<-rt16s_ON240
+rt16s_rc_on240<-rc.rt16s_ON240
+rt16s_on240_process<-cal.process(rt16s_NTI_on240,rt16s_rc_on240)
+rt16s_on240_process$type<-"rare"
+rt16s_on240_process$treat<-"ON240"
+View(rt16s_on240_process)
+
+process_16s_ab<-rbind(ab16s_n0_process,ab16s_n120_process,ab16s_n240_process,ab16s_on120_process,ab16s_on240_process)
+process_16s_rt<-rbind(rt16s_n0_process,rt16s_n120_process,rt16s_n240_process,rt16s_on120_process,rt16s_on240_process)
+View(process_16s_rt)
+
+#################################abits###########################
+abits_NTI_n0<-abits_N0
+abits_rc_n0<-rc.abits_N0
+abits_n0_process<-cal.process(abits_NTI_n0,abits_rc_n0)
+abits_n0_process$type<-"abundant"
+abits_n0_process$treat<-"N0"
+View(abits_n0_process)
+
+abits_NTI_n120<-abits_N120
+abits_rc_n120<-rc.abits_N120
+abits_n120_process<-cal.process(abits_NTI_n120,abits_rc_n120)
+abits_n120_process$type<-"abundant"
+abits_n120_process$treat<-"N120"
+View(abits_n120_process)
+
+abits_NTI_n240<-abits_N240
+abits_rc_n240<-rc.abits_N240
+abits_n240_process<-cal.process(abits_NTI_n240,abits_rc_n240)
+abits_n240_process$type<-"abundant"
+abits_n240_process$treat<-"N240"
+View(abits_n240_process)
+
+abits_NTI_on120<-abits_ON120
+abits_rc_on120<-rc.abits_ON120
+abits_on120_process<-cal.process(abits_NTI_on120,abits_rc_on120)
+abits_on120_process$type<-"abundant"
+abits_on120_process$treat<-"ON120"
+View(abits_on120_process)
+
+abits_NTI_on240<-abits_ON240
+abits_rc_on240<-rc.abits_ON240
+abits_on240_process<-cal.process(abits_NTI_on240,abits_rc_on240)
+abits_on240_process$type<-"abundant"
+abits_on240_process$treat<-"ON240"
+View(abits_on240_process)
+
+
+#############################rtits#####################
+rtits_NTI_n0<-rtits_N0
+rtits_rc_n0<-rc.rtits_N0
+rtits_n0_process<-cal.process(rtits_NTI_n0,rtits_rc_n0)
+rtits_n0_process$type<-"rare"
+rtits_n0_process$treat<-"N0"
+View(rtits_n0_process)
+
+rtits_NTI_n120<-rtits_N120
+rtits_rc_n120<-rc.rtits_N120
+rtits_n120_process<-cal.process(rtits_NTI_n120,rtits_rc_n120)
+rtits_n120_process$type<-"rare"
+rtits_n120_process$treat<-"N120"
+View(rtits_n120_process)
+
+rtits_NTI_n240<-rtits_N240
+rtits_rc_n240<-rc.rtits_N240
+rtits_n240_process<-cal.process(rtits_NTI_n240,rtits_rc_n240)
+rtits_n240_process$type<-"rare"
+rtits_n240_process$treat<-"N240"
+View(rtits_n240_process)
+
+rtits_NTI_on120<-rtits_ON120
+rtits_rc_on120<-rc.rtits_ON120
+rtits_on120_process<-cal.process(rtits_NTI_on120,rtits_rc_on120)
+rtits_on120_process$type<-"rare"
+rtits_on120_process$treat<-"ON120"
+View(rtits_on120_process)
+
+rtits_NTI_on240<-rtits_ON240
+rtits_rc_on240<-rc.rtits_ON240
+rtits_on240_process<-cal.process(rtits_NTI_on240,rtits_rc_on240)
+rtits_on240_process$type<-"rare"
+rtits_on240_process$treat<-"ON240"
+View(rtits_on240_process)
+
+process_its_ab<-rbind(abits_n0_process,abits_n120_process,abits_n240_process,abits_on120_process,abits_on240_process)
+process_its_rt<-rbind(rtits_n0_process,rtits_n120_process,rtits_n240_process,rtits_on120_process,rtits_on240_process)
+View(process_its_ab)
+
+
+treat<-c("N0","N120","N240","ON120","ON240")
+treat<-data.frame(treat)
+########################表里的treat顺序没有改变，单独把treat拿出算相对丰度，再放回##################
+process_its_ab_1<-process_its_ab[,c(1:5)]
+process_its_rt_1<-process_its_rt[,c(1:5)]
+process_16s_ab_1<-process_16s_ab[,c(1:5)]
+process_16s_rt_1<-process_16s_rt[,c(1:5)]
+View(process_its_rt_1)
+
+pro.abits_re<-process_its_ab_1/apply(process_its_ab_1,1,sum)##########计算相对丰度
+pro.rtits_re<-process_its_rt_1/apply(process_its_rt_1,1,sum)##########计算相对丰度
+pro.ab16s_re<-process_16s_ab_1/apply(process_16s_ab_1,1,sum)##########计算相对丰度
+pro.rt16s_re<-process_16s_rt_1/apply(process_16s_rt_1,1,sum)##########计算相对丰度
+
+#####################修改行名#########################
+# select.l=variable selection
+# select.h=homogeneous selection
+# select.h+select.l= Environment selection
+# disper.l= Dispersal limitation
+# disper.h= Homogenizing dispersal
+# drift= Ecological drift
+# num.pair= number of paired comparisons
+###
+###
+#Heterogeneous selection >2           select.l    
+#Homogeneous selection  <-2           select.h
+#Dispersal limitation >0.95           disper.l
+#Homogenizing dispersal <-0.95        disper.h
+#Undominated<0.95                     drift
+##
+##
+names(pro.abits_re)<-c("Heterogeneous selection","Homogeneous selection","Dispersal limitation",
+                       "Homogenizing dispersal","Undominated")
+names(pro.rtits_re)<-c("Heterogeneous selection","Homogeneous selection","Dispersal limitation",
+                      "Homogenizing dispersal","Undominated")
+names(pro.ab16s_re)<-c("Heterogeneous selection","Homogeneous selection","Dispersal limitation",
+                       "Homogenizing dispersal","Undominated")
+names(pro.rt16s_re)<-c("Heterogeneous selection","Homogeneous selection","Dispersal limitation",
+                       "Homogenizing dispersal","Undominated")
+View(pro.rtits_re)
+
+#############把treat放回#####################
+pro.abits_rel<-cbind(treat,pro.abits_re)
+pro.rtits_rel<-cbind(treat,pro.rtits_re)
+pro.ab16s_rel<-cbind(treat,pro.ab16s_re)
+pro.rt16s_rel<-cbind(treat,pro.rt16s_re)
+View(pro.abits_rel)
+
+Gprocess_abits<-gather(pro.abits_rel,process,value,-treat)
+Gprocess_rtits<-gather(pro.rtits_rel,process,value,-treat)
+Gprocess_ab16s<-gather(pro.ab16s_rel,process,value,-treat)
+Gprocess_rt16s<-gather(pro.rt16s_rel,process,value,-treat)
+View(Gprocess_rt16s)
+
+#color<-c("#FF9999","#CC3366","#CC33CC","#9900CC","#0099CC","#FF9900","#FFCC00","#996600","#CC6666","#009966","#999999")
+Gprocess_abits$treat<-factor(Gprocess_abits$treat,levels = c("N0","N120","N240","ON120","ON240"))
+Gprocess_rtits$treat<-factor(Gprocess_rtits$treat,levels = c("N0","N120","N240","ON120","ON240"))
+Gprocess_ab16s$treat<-factor(Gprocess_ab16s$treat,levels = c("N0","N120","N240","ON120","ON240"))
+Gprocess_rt16s$treat<-factor(Gprocess_rt16s$treat,levels = c("N0","N120","N240","ON120","ON240"))
+
+############
+############
+############
+Gprocess_16s<-rbind(Gprocess_ab16s,Gprocess_rt16s)
+Gprocess_its<-rbind(Gprocess_abits,Gprocess_rtits)
+Gprocess_16s$type<-c(rep("Abundant",nrow(Gprocess_ab16s)),rep("Rare",nrow(Gprocess_rt16s)))
+Gprocess_its$type<-c(rep("Abundant",nrow(Gprocess_abits)),rep("Rare",nrow(Gprocess_rtits)))
+View(Gprocess_16s)
+p_Gprocess_16s<-ggplot(Gprocess_16s,aes(x=treat,y=value,fill=process))+geom_bar(stat="identity")+facet_grid(.~type)+
+  scale_fill_brewer(palette="Set3")+
+  theme_bw()+theme(legend.text=element_text(size=10),
+                   legend.key.height=unit(0.6,"cm"),
+                   axis.title.x=element_blank(),
+                   axis.title.y=element_blank(),
+                   axis.text.y=element_text(size=8),
+                   strip.background=element_rect(fill="black",size=0.1),
+                   strip.text=element_text(colour="white"),
+                   panel.grid = element_blank())
+p_Gprocess_16s
+
+p_Gprocess_its<-ggplot(Gprocess_its,aes(x=treat,y=value,fill=process))+geom_bar(stat="identity")+facet_grid(.~type)+
+  scale_fill_brewer(palette="Set3")+
+  theme_bw()+theme(legend.text=element_text(size=10),
+                   legend.key.height=unit(0.6,"cm"),
+                   axis.title.x=element_blank(),
+                   axis.title.y=element_blank(),
+                   axis.text.y=element_text(size=8),
+                   strip.background=element_rect(fill="black",size=0.1),
+                   strip.text=element_text(colour="white"),
+                   panel.grid = element_blank())
+p_Gprocess_its
+
+p_Gprocess<-ggarrange(p_Gprocess_16s,p_Gprocess_its,ncol=1,nrow=2,labels=c("(a)","(b)"))
+ggsave("p_Gprocess.pdf",p_Gprocess,width=7,height=5)
+
+
+
+abits_assembly<-ggplot(Gprocess_abits,aes(x=treat,y=value,fill=process))+
+  geom_bar(stat="identity")+
+  scale_fill_manual(values=c("#FF9999","#CC3366","#996600","#9900CC","#0099CC"))+ylab("Fungi")+
+  theme_bw()+theme(axis.title.x=element_blank(),
+                   legend.text=element_text(size=7))+
+  guides(fill=guide_legend(title=NULL))
+abits_assembly
+
+rtits_assembly<-ggplot(Gprocess_rtits,aes(x=treat,y=value,fill=process))+
+  geom_bar(stat="identity")+
+  scale_fill_manual(values=c("#FF9999","#CC3366","#996600","#9900CC","#0099CC"))+ylab("Fungi")+
+  theme_bw()+theme(axis.title.x=element_blank(),
+                   legend.text=element_text(size=7))+
+  guides(fill=guide_legend(title=NULL))
+rtits_assembly
+
+ab16s_assembly<-ggplot(Gprocess_ab16s,aes(x=treat,y=value,fill=process))+
+  geom_bar(stat="identity")+
+  scale_fill_manual(values=c("#FF9999","#CC3366","#996600","#9900CC","#0099CC"))+ylab("Bacteria")+
+  theme_bw()+theme(axis.title.x=element_blank(),
+                   legend.text=element_text(size=7))+
+  guides(fill=guide_legend(title=NULL))
+ab16s_assembly
+
+rt16s_assembly<-ggplot(Gprocess_rt16s,aes(x=treat,y=value,fill=process))+
+  geom_bar(stat="identity")+
+  scale_fill_manual(values=c("#FF9999","#CC3366","#996600","#9900CC","#0099CC"))+ylab("Bacteria")+
+  theme_bw()+theme(axis.title.x=element_blank(),
+                   legend.text=element_text(size=7))+
+  guides(fill=guide_legend(title=NULL))
+rt16s_assembly
+
+ggsave("abits_bray.png",abits_bray,width=6,height=4)
+ggsave("rtits_bray.png",rtits_bray,width=6,height=4)
+ggsave("ab16s_bray.png",ab16s_bray,width=6,height=4)
+ggsave("rt16s_bray.png",rt16s_bray,width=6,height=4)
+
+ggsave("abits_bNTI.png",abits_bNTI,width=6,height=4)
+ggsave("rtits_bNTI.png",rtits_bNTI,width=6,height=4)
+ggsave("ab16s_bNTI.png",ab16s_bNTI,width=6,height=4)
+ggsave("rt16s_bNTI.png",rt16s_bNTI,width=6,height=4)
+
+ggsave("abits_assembly.png",abits_assembly,width=6,height=4)
+ggsave("rtits_assembly.png",rtits_assembly,width=6,height=4)
+ggsave("ab16s_assembly.png",ab16s_assembly,width=6,height=4)
+ggsave("rt16s_assembly.png",rt16s_assembly,width=6,height=4)
